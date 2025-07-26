@@ -3,10 +3,15 @@ import { DashboardHeader } from '@/components/DashboardHeader';
 import { MetricCard } from '@/components/MetricCard';
 import { InfluencerTable } from '@/components/InfluencerTable';
 import { PerformanceChart } from '@/components/PerformanceChart';
+import { DataUploadDialog } from '@/components/DataUploadDialog';
+import { ReportGenerationDialog } from '@/components/ReportGenerationDialog';
+import { TrendAnalysisDialog } from '@/components/TrendAnalysisDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useToast } from '@/hooks/use-toast';
+import { exportToCSV } from '@/utils/exportUtils';
 import { 
   TrendingUpIcon, 
   DollarSignIcon, 
@@ -29,6 +34,8 @@ import {
 
 const Index = () => {
   const [selectedTab, setSelectedTab] = useState('overview');
+  const [campaignData, setCampaignData] = useState<any[]>([]);
+  const { toast } = useToast();
 
   // Calculate metrics
   const campaignMetrics = useMemo(() => 
@@ -85,8 +92,34 @@ const Index = () => {
     revenue: persona.totalRevenue
   }));
 
+  const handleDataUpload = (data: any[]) => {
+    setCampaignData(prev => [...prev, ...data]);
+    toast({
+      title: "Success",
+      description: `Added ${data.length} new campaign records`
+    });
+  };
+
   const handleExport = () => {
-    console.log('Exporting data...');
+    const exportData = [
+      ...influencerPerformances.map(perf => ({
+        influencer_name: perf.influencer.name,
+        platform: perf.influencer.platform,
+        category: perf.influencer.category,
+        revenue: perf.revenue,
+        orders: perf.orders,
+        reach: perf.reach,
+        roi: perf.roi,
+        payout: perf.payout
+      })),
+      ...campaignData
+    ];
+    
+    exportToCSV(exportData, `campaign-data-${new Date().toISOString().split('T')[0]}`);
+    toast({
+      title: "Success",
+      description: "Campaign data exported successfully"
+    });
   };
 
   return (
@@ -162,19 +195,31 @@ const Index = () => {
               </CardHeader>
               <CardContent>
                 <div className="flex flex-wrap gap-3">
-                  <Button variant="outline" className="gap-2">
-                    <UploadIcon className="h-4 w-4" />
-                    Upload Campaign Data
-                  </Button>
-                  <Button variant="outline" className="gap-2">
-                    <FileTextIcon className="h-4 w-4" />
-                    Generate Report
-                  </Button>
-                  <Button variant="outline" className="gap-2">
-                    <TrendingUpIcon className="h-4 w-4" />
-                    Analyze Trends
-                  </Button>
+                  <DataUploadDialog onDataUpload={handleDataUpload} />
+                  <ReportGenerationDialog campaignData={[...campaignData, ...influencerPerformances.map(p => ({
+                    influencer_name: p.influencer.name,
+                    platform: p.influencer.platform,
+                    revenue: p.revenue,
+                    orders: p.orders,
+                    roi: p.roi,
+                    payout: p.payout
+                  }))]} />
+                  <TrendAnalysisDialog campaignData={[...campaignData, ...influencerPerformances.map(p => ({
+                    influencer_name: p.influencer.name,
+                    platform: p.influencer.platform,
+                    revenue: p.revenue,
+                    orders: p.orders,
+                    roi: p.roi,
+                    date: new Date().toISOString().split('T')[0]
+                  }))]} />
                 </div>
+                {campaignData.length > 0 && (
+                  <div className="mt-4 p-3 bg-success/10 rounded-lg">
+                    <div className="text-sm text-success">
+                      <strong>{campaignData.length}</strong> additional campaign records uploaded
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
